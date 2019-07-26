@@ -1,4 +1,6 @@
 # Einthusan.com plugin written by humla.
+# Einthusan.tv Plugin maintained by ReasonsRepo
+
 
 import os
 import re
@@ -91,34 +93,43 @@ def get_movies_and_music_videos_helper(name, url, language, mode, page):
     referurl = url
     html =  requests.get(url).text
     # match = re.compile('<div class="block1">.*?href=".*?watch\/(.*?)\/\?lang=(.*?)".*?src="(.*?)".*?<h3>(.*?)</h3>.+?i class(.+?)<p').findall(html)
-    match = re.compile('<div class="block1">.*?href=".*?watch\/(.*?)\/\?lang=(.*?)".*?src="(.*?)".*?<h3>(.*?)</h3>.+?i class(.+?)<p.+?<span>Wiki</span>(.+?)</div>').findall(html)
+    match = re.compile('<div class="block1">.*?href=".*?watch\/(.*?)\/\?lang=(.*?)".*?<img src="(.+?)".+?<h3>(.+?)<\/h3>.+?i class(.+?)<p class="synopsis">(.+?)<\/p>.+?<span>Wiki<').findall(html)
     nextpage=re.findall('data-disabled="([^"]*)" href="(.+?)"', html)[-1]
-
-
+    print("I was here")
     # Bit of a hack
-    MOVIES_URL = "http://www.einthusan.tv/movies/watch/"
-    for movie, lang, image, name, ishd, trailer in match:
+    MOVIES_URL = "http://www.einthusan.com/movies/watch/"
+    for movie, lang, image, name, ishd, synopsis in match:
         if (mode == 1):
-            image = 'http:' + image
+            if 'http' not in image:
+                image = 'http:' + image
+            else:
+                image = image
+            trailer = ''
+            name = str(name.replace(",","").encode('ascii', 'ignore').decode('ascii'))
             movie = str(name)+','+str(movie)+','+lang+','
             if 'ultrahd' in ishd:
-                name = name + '[COLOR blue]- Ultra HD[/COLOR]'
+                name = str(name + '[COLOR blue]- Ultra HD[/COLOR]')
                 movie = movie+'itshd,'+referurl
             else:
                 movie = movie+'itsnothd,'+referurl
             if 'youtube' in trailer: trail = trailer.split('watch?v=')[1].split('">')[0]
             else: trail=None
+            try:
+                description = synopsis.encode('ascii', 'ignore').decode('ascii')
+            except:
+                description=""
+            
         # addDir(name, MOVIES_URL + str(movie)+'/?lang='+lang, 2, image, lang)
-        addDir(name,movie,2,image,lang,trail, isplayable=True)
+        addDir(name,movie,2,image,lang,description, isplayable=True)
     if nextpage[0]!='true':
         nextPage_Url = BASE_URL+nextpage[1]
-        if (page > NUMBER_OF_PAGES):
-            addDir('>>> Next Page >>>', nextPage_Url,1,'','')
-        else:
-            get_movies_and_music_videos_helper(name, nextPage_Url, language, mode, page+1)
-
+        # if (page > NUMBER_OF_PAGES):
+        addDir('>>> Next Page >>>', nextPage_Url,1,'','')
+        # else:
+            # get_movies_and_music_videos_helper(name, nextPage_Url, language, mode, page+1)
     xbmcplugin.endOfDirectory(int(sys.argv[1]))
     # s.close()
+
 
 
 ##
@@ -184,31 +195,37 @@ def show_recent_sections(name, url, language, mode):
     cwd = ADDON.getAddonInfo('path')
     img_path = cwd + '/images/' 
 
-    postData = 'https://einthusan.tv/movie/results/?'+url + '&find='
+    postData = 'https://einthusan.com/movie/results/?'+url + '&find='
     addDir('Recently Posted',  postData + 'Recent', 1, img_path + 'recently_added.png')
     #addDir('[COLOR red]Recently Viewed[/COLOR]', postData + 'RecentlyViewed', 15, img_path + 'recently_viewed.png')
     xbmcplugin.endOfDirectory(int(sys.argv[1]))
 
 # Shows the movie in the homepage..
 def show_featured_movies(name, url, language, mode):
-    page_url = 'https://einthusan.tv/movie/browse/?lang=' + language
+    page_url = 'https://einthusan.com/movie/browse/?lang=' + language
 
     html = requests.get(page_url).text
-    matches = re.compile('name="newrelease_tab".+?img src="(.+?)".+?href="(.+?)"><h2>(.+?)</h2>.+?i class=(.+?)</div>').findall(html)
+    matches = re.compile('name="newrelease_tab".+?img src="(.+?)".+?href="\/movie\/watch\/(.+?)\/\?lang=(.+?)"><h2>(.+?)<\/h2>.+?i class=(.+?)<\/div>').findall(html)
 
-    staffPicks_matches = re.compile('  <i class="(.+?)">.+?</i>.+?</i>Subtitle</p></div><a href="(.+?)"><img src="(.+?)"> </a><a href=".+?" class="title">(.+?)</a>').findall(html)
+    staffPicks_matches = re.compile('<a class="title" href="\/movie\/watch\/(.+?)\/\?lang=.+?"><h3>(.+?)<\/h3><\/a><div class="info">.+?<i class="(.+?)">.+?<\/i>.+?<\/i>Subtitle<\/p><\/div><p class="synopsis">(.+?)<\/p><div class="professionals">  <input type=.+?<img src="(.+?)"><\/div>').findall(html)
     staffPicks_matches = staffPicks_matches[:10]
-
+    print("it works")
     allmatches = []
-    for img, id, name, ishd in matches:
+    for img, id,lang, name, ishd in matches:
+        img = img.replace('"><img src="','')
+        img = "https:" + img
+
+        name = name.replace(",","").encode('ascii', 'ignore').decode('ascii')
         allmatches.append((img,id,name,ishd))
-    for ishd, link, image, name in staffPicks_matches:
+    for link,name,ishd,image,ishd in staffPicks_matches:
         allmatches.append((image, link, name, ishd))
 
     for img, id, name, ishd in allmatches:
-        print id 
-        movieid = id.split('/')[3]
-        movielang= id.split('lang=')[1]
+        print ("this is id" + id)
+        movieid = id
+        print(movieid)
+        movielang= lang
+        print(movielang + "this is lang")
         movie = name+','+movieid+','+movielang
         if 'ultrahd' in ishd:
             title=name + '[COLOR blue]- Ultra HD[/COLOR]'
@@ -216,8 +233,14 @@ def show_featured_movies(name, url, language, mode):
         else:
             title=name
             movie = movie+',itsnothd,'+page_url
-        link = 'http://www.einthusan.tv'+str(id)
-        image = 'http:'+img
+        link = 'http://www.einthusan.com'+str(id)
+        
+        image = img
+        if 'http' not in image:
+            image = 'https:' + img
+        else:
+            image = img
+        xbmc.log(image + " " + name)
 
         addDir(title, movie, 2, image, language, isplayable=True)
     xbmcplugin.endOfDirectory(int(sys.argv[1]))
@@ -245,9 +268,9 @@ def show_A_Z(name, url, language, mode):
     
     azlist = map (chr, range(65,91))
     # postData = 'https://einthusan.tv/movie/results/?'+url + "find=Alphabets&alpha="
-    addDir('Numerical', 'https://einthusan.tv/movie/results/?find=Numbers&'+url, 1, '')
+    addDir('Numerical', 'https://einthusan.com/movie/results/?find=Numbers&'+url, 1, '')
     for letter in azlist:
-        addDir(letter, 'https://einthusan.tv/movie/results/?alpha='+letter+'&find=Alphabets&'+url, 1, '')
+        addDir(letter, 'https://einthusan.com/movie/results/?alpha='+letter+'&find=Alphabets&'+url, 1, '')
     xbmcplugin.endOfDirectory(int(sys.argv[1]))
 ##
 # Single method that shows the list of years, actors and directors. 
@@ -284,13 +307,14 @@ def show_search_box(name, url, language, mode):
     keyb.doModal()
     if (keyb.isConfirmed()):
         search_term = urllib.quote_plus(keyb.getText()) 
-        postData = 'https://einthusan.tv/movie/results/?'+url+'&query=' + search_term
-        headers={'Origin':'https://einthusan.tv','Referer':'https://einthusan.tv/movie/browse/?'+url,'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36'}
+        postData = 'https://einthusan.com/movie/results/?'+url+'&query=' + search_term
+        headers={'Origin':'https://einthusan.com','Referer':'https://einthusan.tv/movie/browse/?'+url,'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36'}
         html = requests.get(postData, headers=headers).text
-        match = re.compile('<div class="block1">.*?href=".*?watch\/(.*?)\/\?lang=(.*?)".*?src="(.*?)".*?<h3>(.*?)</h3>.+?i class(.+?)<p').findall(html)
+        match = re.compile('<div class="block1">.*?href=".*?watch\/(.*?)\/\?lang=(.*?)".*?src="(.+?)".+?<h3>(.*?)<\/h3>.+?i class(.+?)<p').findall(html)
         nextpage=re.findall('data-disabled="([^"]*)" href="(.+?)"', html)[-1]
 
         for movie, lang, image, name, ishd in match:
+            name = name.replace(",","").encode('ascii', 'ignore').decode('ascii')
             image = 'http:' + image
             movie = str(name)+','+str(movie)+','+lang+','
             if 'ultrahd' in ishd:
@@ -317,9 +341,12 @@ def list_music_videos(name, url, language, mode):
 def http_request_with_login(url):
     username = xbmcplugin.getSetting(int(sys.argv[1]), 'username')
     password = xbmcplugin.getSetting(int(sys.argv[1]), 'password')
+    xbmc.log(username)
+    xbmc.log(password)
 
     ADDON_USERDATA_FOLDER = xbmc.translatePath(ADDON.getAddonInfo('profile'))
     COOKIE_FILE = os.path.join(ADDON_USERDATA_FOLDER, 'cookies')
+    
     return HTTPInterface.http_get(url, COOKIE_FILE,username, password)
 
 def decodeEInth(lnk):
@@ -338,33 +365,34 @@ def encodeEInth(lnk):
 ##
 def play_video(name, url, language, mode):
     
-    s = requests.Session()
-    
-    # "Playing: " + name + ", with url:"+ url)
+    s = requests.Session()    
+    print("Playing: " + name + ", with url:"+ url)
     
     name,url,lang,isithd,referurl=url.split(',')
-    
+
     if isithd=='itshd':
         dialog = xbmcgui.Dialog()
         ret = dialog.select('Quality Options', ['Play UHD', 'Play HD/SD'])
         
         if ret ==0:
             # isithd = 'itshd'
-            headers={'Origin':'https://einthusan.tv','Referer':'https://einthusan.tv/movie/browse/?lang=hindi','User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36'}
-            mainurl='https://einthusan.tv/movie/watch/%s/?lang=%s&uhd=true'%(url,lang)
-            mainurlajax='https://einthusan.tv/ajax/movie/watch/%s/?lang=%s&uhd=true'%(url,lang)
+            headers={'Origin':'https://einthusan.com','Referer':'https://einthusan.tv/movie/browse/?lang=hindi','User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36'}
+            mainurl='https://einthusan.com/movie/watch/%s/?lang=%s&uhd=true'%(url,lang)
+            mainurlajax='https://einthusan.com/ajax/movie/watch/%s/?lang=%s&uhd=true'%(url,lang)
             login_info(s, referurl)
             get_movie(s,mainurl,mainurlajax, headers)
         if ret ==1:
             # isithd = 'itsnothd'
-            mainurl='https://einthusan.tv/movie/watch/%s/?lang=%s'%(url,lang)
-            mainurlajax='https://einthusan.tv/ajax/movie/watch/%s/?lang=%s'%(url,lang)
-            headers={'Origin':'https://einthusan.tv','Referer':'https://einthusan.tv/movie/browse/?lang=hindi','User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36'}
+            mainurl='https://einthusan.com/movie/watch/%s/?lang=%s'%(url,lang)
+            mainurlajax='https://einthusan.com/ajax/movie/watch/%s/?lang=%s'%(url,lang)
+            print(mainurlajax)
+            headers={'Origin':'https://einthusan.com','Referer':'https://einthusan.tv/movie/browse/?lang=hindi','User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36'}
             get_movie(s,mainurl,mainurlajax, headers)
+            
     else:
-        mainurl='https://einthusan.tv/movie/watch/%s/?lang=%s'%(url,lang)
-        mainurlajax='https://einthusan.tv/ajax/movie/watch/%s/?lang=%s'%(url,lang)
-        headers={'Origin':'https://einthusan.tv','Referer':'https://einthusan.tv/movie/browse/?lang=hindi','User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36'}
+        mainurl='https://einthusan.com/movie/watch/%s/?lang=%s'%(url,lang)
+        mainurlajax='https://einthusan.com/ajax/movie/watch/%s/?lang=%s'%(url,lang)
+        headers={'Origin':'https://einthusan.com','Referer':'https://einthusan.tv/movie/browse/?lang=hindi','User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36'}
         get_movie(s,mainurl,mainurlajax, headers)
         
     xbmcplugin.endOfDirectory(int(sys.argv[1]))
@@ -399,7 +427,7 @@ def get_movie(s, mainurl, mainurlajax, headers=None):
 			
     xbmc.log(lnk, level=xbmc.LOGNOTICE)
       
-    urlnew=lnk+('|https://einthusan.tv&Referer=%s&User-Agent=%s'%(mainurl,'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36'))
+    urlnew=lnk+('|https://einthusan.com&Referer=%s&User-Agent=%s'%(mainurl,'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36'))
     listitem = xbmcgui.ListItem( label = str(name), iconImage = "DefaultVideo.png", thumbnailImage = xbmc.getInfoImage( "ListItem.Thumb" ) )
     
     # listitem =xbmcgui.ListItem(name)
@@ -426,7 +454,7 @@ def preferred_server(lnk, mainurl):
 		else: # location == 'Sydney'
 			servers = [28,34,43]
 			
-		server_n = lnk.split('.einthusan.tv')[0].strip('https://s')
+		server_n = lnk.split('.einthusan.com')[0].strip('https://s')
 		SERVER_OFFSET = []
 		if int(server_n) > 100:
 			SERVER_OFFSET.append(100)
@@ -436,7 +464,7 @@ def preferred_server(lnk, mainurl):
 		vidpath = lnk.split('.tv/')[1]
 		new_headers = {'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36', 'Referer':mainurl, 'Origin':'https://einthusan.tv'}
 		for i in servers:
-			urltry = ("https://s" + str(i+SERVER_OFFSET[0]) + ".einthusan.tv/" + vidpath)
+			urltry = ("https://s" + str(i+SERVER_OFFSET[0]) + ".einthusan.com/" + vidpath)
 			isitworking = requests.get(urltry, headers=new_headers).status_code
 			xbmc.log(urltry, level=xbmc.LOGNOTICE)
 			xbmc.log(str(isitworking), level=xbmc.LOGNOTICE)
@@ -447,20 +475,21 @@ def preferred_server(lnk, mainurl):
 	
 def login_info(s, referurl):
     
-    headers={'Host':'einthusan.tv', 'Origin':'https://einthusan.tv','Referer':referurl,'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36'}
+    headers={'Host':'einthusan.com', 'Origin':'https://einthusan.tv','Referer':referurl,'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36'}
     
-    htm = s.get('https://einthusan.tv/login/?lang=hindi', headers=headers, allow_redirects=False).content
+    htm = s.get('https://einthusan.com/login/?lang=hindi', headers=headers, allow_redirects=False).content
     csrf=re.findall('data-pageid=["\'](.*?)["\']',htm)[0]
     if '&#43;' in csrf: csrf = csrf.replace('&#43;', '+')
     
     body = {'xEvent':'Login','xJson':'{"Email":"'+username+'","Password":"'+password+'"}', 'arcVersion':3, 'appVersion':59,'tabID':csrf+'48','gorilla.csrf.Token':csrf}
+    xbmc.log(body)
     headers['X-Requested-With']='XMLHttpRequest'
     
     
-    headers['Referer']='https://einthusan.tv/login/?lang=hindi'
-    html2= s.post('https://einthusan.tv/ajax/login/?lang=hindi',headers=headers,cookies=s.cookies, data=body,allow_redirects=False) 
+    headers['Referer']='https://einthusan.com/login/?lang=hindi'
+    html2= s.post('https://einthusan.com/ajax/login/?lang=hindi',headers=headers,cookies=s.cookies, data=body,allow_redirects=False) 
     
-    html3=s.get('https://einthusan.tv/account/?flashmessage=success%3A%3A%3AYou+are+now+logged+in.&lang=hindi', headers=headers, cookies=s.cookies)
+    html3=s.get('https://einthusan.com/account/?flashmessage=success%3A%3A%3AYou+are+now+logged+in.&lang=hindi', headers=headers, cookies=s.cookies)
     
     csrf3 = re.findall('data-pageid=["\'](.*?)["\']',html3.text)[0]
     body4 = {'xEvent':'notify','xJson':'{"Alert":"SUCCESS","Heading":"AWESOME!","Line1":"You+are+now+logged+in.","Buttons":[]}', 'arcVersion':3, 'appVersion':59,'tabID':csrf+'48','gorilla.csrf.Token':csrf3}
@@ -518,16 +547,16 @@ def GUIEditExportName(name):
     return(name)
     
 def playtrailer( name,url,language,mode ):
-    # dialog.notification( addon.get_name(), 'fetching trailer', addon.get_icon(), 4000)
+    dialog.notification( addon.get_name(), 'fetching trailer', addon.get_icon(), 4000)
     trail = 'plugin://plugin.video.youtube/play/?videoid='+url
     xbmc.log(trail, level=xbmc.LOGNOTICE)
-    # xbmc.log(sys.argv[0], level=xbmc.LOGNOTICE)
-    # xbmc.log(sys.argv[1], level=xbmc.LOGNOTICE)
+    xbmc.log(sys.argv[0], level=xbmc.LOGNOTICE)
+    xbmc.log(sys.argv[1], level=xbmc.LOGNOTICE)
     listitem = xbmcgui.ListItem(name)
     listitem.setPath(url)
     xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, listitem)
-    # xbmc.Player().play(url, listitem)
-    # sys.exit()
+    xbmc.Player().play(url, listitem)
+    sys.exit()
 
 def addLink(name,url,iconimage):
     liz=xbmcgui.ListItem(name, iconImage="DefaultVideo.png", thumbnailImage=iconimage)
@@ -536,11 +565,11 @@ def addLink(name,url,iconimage):
     return ok
 
 
-def addDir(name, url, mode, iconimage, lang='', trail=None, isplayable=False):
-    u=sys.argv[0]+"?url="+urllib.quote_plus(url)+"&mode="+str(mode)+"&name="+urllib.quote_plus(name)+"&lang="+urllib.quote_plus(lang)
+def addDir(name, url, mode, iconimage, lang='',description='', isplayable=False):
+    u=sys.argv[0]+"?url="+urllib.quote_plus(url)+"&mode="+str(mode)+"&name="+urllib.quote_plus(name)+"&lang="+urllib.quote_plus(lang)+'&description='+urllib.quote_plus(description)
     
     liz=xbmcgui.ListItem(name, iconImage="DefaultFolder.png", thumbnailImage=iconimage)
-    liz.setInfo( type="Video", infoLabels={ "Title": name } )
+    liz.setInfo( type="Video", infoLabels={"Title": name,"Plot":description})
     liz.setProperty('IsPlayable', 'true')
     isfolder=True
     if isplayable:
@@ -553,6 +582,7 @@ url=''
 name=''
 mode=0
 language=''
+description=''
 
 try:
     url=urllib.unquote_plus(params["url"])
@@ -574,6 +604,11 @@ try:
 except:
     pass
 
+
+try:
+    description=urllib.unquote_plus(params["description"])
+except:
+    pass
 # Modes
 # 0: The main Categories Menu. Selection of language
 # 1: For scraping the movies from a list of movies in the website
