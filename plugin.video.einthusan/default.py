@@ -30,7 +30,7 @@ if (locationId > len(Locations) - 1):
     locationId = len(Locations) - 1
 
 location = Locations[locationId]
-BASE_URL='https://einthusan.tv'
+BASE_URL='https://einthusan.com'
 ##
 # Prints the main categories. Called when id is 0.
 ##
